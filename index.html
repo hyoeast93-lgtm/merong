@@ -190,7 +190,7 @@ footer{padding:10px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px
   <div class="two">
     <label class="field"><span>배울 언어</span><select id="s_lang"></select></label>
     <label class="field"><span>지금 수준</span><select id="s_level">
-      <option>완전 처음</option><option>단어 몇 개 앎</option><option>짧은 대화 됨</option><option>일상 대화 됨</option></select></label>
+      <option>완전 처음</option><option>단어 몇 개 앎</option><option>짧은 대화 됨</option><option>일상 대화 됨</option><option>깊은 대화 됨</option></select></label>
   </div>
   <label class="field"><span>좋아하는 것</span><input id="s_likes" placeholder="예: 기차, 공룡, 축구"></label>
   <div class="two">
@@ -208,6 +208,10 @@ footer{padding:10px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px
   <label class="field"><span>목소리 (이 폰에 설치된 것)</span><select id="s_voice"></select></label>
   <button class="ghost" id="btnTestVoice" style="margin-top:0">🔊 목소리 들어 보기</button>
   <p class="note" id="voiceNote"></p>
+  <label class="field"><span>음성 인식 방식</span><select id="s_stt">
+    <option value="ai">AI 인식 — 더 정확해요 (Gemini 키 필요)</option>
+    <option value="phone">폰 기본 인식 — 빠르지만 덜 정확해요</option></select></label>
+  <p class="note">AI 인식은 말소리를 녹음해 Gemini에게 글자로 받아 적게 해요. 한국어·영어가 섞여도 되고 발음이 서툴러도 훨씬 잘 알아들어요. 대신 한 번 말할 때마다 요청이 한 번 더 가서 무료 사용량을 더 빨리 써요.</p>
   <label class="field"><span>말 끝나고 기다리는 시간</span><select id="s_wait">
     <option value="3">3초 쉬면 보내기 (기본)</option><option value="5">5초 쉬면 보내기 (천천히)</option>
     <option value="0">버튼을 다시 누를 때까지</option></select></label>
@@ -219,7 +223,11 @@ footer{padding:10px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px
     <option value="gemini">Google Gemini (무료 키로 시작 가능)</option>
     <option value="openai">OpenAI</option>
     <option value="claude">Anthropic Claude</option></select></label>
-  <label class="field"><span>모델 이름 (비워 두면 기본값)</span><input id="s_model" autocapitalize="off" autocomplete="off"></label>
+  <label class="field"><span>대화 AI (Gemini)</span><select id="s_brain">
+    <option value="fast">빠름 — 가볍고 빠른 모델</option>
+    <option value="smart">똑똑함 — 대답이 풍부해요 (조금 느릴 수 있어요)</option></select></label>
+  <p class="note">'일상 대화 됨' 이상이면 '똑똑함'을 추천해요. 둘 다 무료 등급이 있어요.</p>
+  <label class="field"><span>모델 이름 (비워 두면 위 선택대로)</span><input id="s_model" autocapitalize="off" autocomplete="off"></label>
   <label class="field"><span>API 키</span><input id="s_key" type="password" autocapitalize="off" autocomplete="off" placeholder="여기에 붙여 넣기"></label>
   <div class="keybox">
     🔑 키는 이 폰에만 저장되고, 고른 AI 회사로만 보내져요.<br>
@@ -228,7 +236,7 @@ footer{padding:10px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px
     · 결제 계정에 <b>한 달 사용 한도</b>를 꼭 걸어 두세요.<br>
     · Gemini 무료 키: aistudio.google.com 에서 받을 수 있어요(무료 쪽 대화는 서비스 개선에 쓰일 수 있어요).
   </div>
-  <p class="note">대화 내용은 AI 회사로, 내 목소리는 크롬 음성 인식(구글 서버)으로 보내져 글자로 바뀌어요. 대화 기록 보관은 이 폰에만 해요. 이름·주소·전화번호는 말하지 마세요.</p>
+  <p class="note">대화 내용은 AI 회사로 보내져요. 내 목소리는 "폰 기본 인식"이면 크롬(구글 서버)으로, "AI 인식"이면 녹음이 Gemini(구글)로 보내져 글자로 바뀌어요. 무료 등급이면 서비스 개선에 쓰일 수 있어요. 대화 기록 보관은 이 폰에만 해요. 이름·주소·전화번호는 말하지 마세요.</p>
 
   <button class="big" id="btnSave">저장</button>
   <button class="ghost" id="btnClearKey">키 지우기</button>
@@ -261,9 +269,11 @@ footer{padding:10px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px
 "use strict";
 /* ---------- 기본값 ---------- */
 const LANGS = {"영어":"en-US","일본어":"ja-JP","스페인어":"es-ES","중국어":"zh-CN","프랑스어":"fr-FR","독일어":"de-DE","베트남어":"vi-VN"};
+const SMART = {gemini:"gemini-3.8-flash"};
+const chatModel = () => S.model || (S.brain==="smart" && SMART[S.provider]) || MODELS[S.provider];
 const MODELS = {gemini:"gemini-3.5-flash-lite", openai:"gpt-4o-mini", claude:"claude-haiku-4-5"};
 const DEF = {who:"성인",age:"",lang:"영어",level:"단어 몇 개 앎",likes:"",minutes:15,friend:"Emma",persona:"차분하고 다정함",
-  repeatAmt:"보통",wait:"3",rate:0.88,showKo:true,textAfter:true,voice:"",provider:"gemini",model:"",key:""};
+  repeatAmt:"보통",wait:"3",stt:"ai",brain:"fast",rate:0.88,showKo:true,textAfter:true,voice:"",provider:"gemini",model:"",key:""};
 
 /* ---------- 저장 ---------- */
 const store = {
@@ -296,7 +306,7 @@ function bannerList(){
   else if(inFrame) b.push("지금은 <b>미리보기 화면</b>이라 마이크가 안 돼요. https 주소를 <b>"+goodBrowser+"</b>에서 직접 열어 주세요.");
   else if(!isIOS && /KAKAOTALK|NAVER|Instagram|FBAN|; wv\)/i.test(UA)) b.push("앱 안 브라우저에서는 마이크가 잘 안 돼요. 오른쪽 위 메뉴에서 <b>'다른 브라우저로 열기 → 크롬'</b>을 눌러 주세요.");
   else if(isIOSOther) b.push("아이폰에서는 <b>사파리</b>로 열어야 음성 인식이 잘 돼요. (카톡·네이버 앱 안에서 열었다면 '사파리로 열기')");
-  else if(!SR) b.push(`이 브라우저는 음성 인식을 지원하지 않아요. <b>${goodBrowser}</b>에서 열거나 ⌨️ 글자로 입력하세요.`);
+  else if(!SR && !useAI()) b.push(`이 브라우저는 음성 인식을 지원하지 않아요. <b>${goodBrowser}</b>에서 열거나 ⌨️ 글자로 입력하세요.`);
   if(location.protocol==="file:") b.push("파일을 바로 열면 마이크가 안 될 수 있어요. <b>https 주소</b>에 올려서 열어 주세요.");
   if(!S.key) b.push("⚙️ 설정에서 <b>API 키</b>를 먼저 넣어 주세요.");
   return b;
@@ -347,8 +357,26 @@ function speak(text, code, opt){
 const wait = ms => new Promise(r=>setTimeout(r,ms));
 
 /* ---------- AI 지시 ---------- */
+const LEVELS = {
+  "완전 처음": {talk:"1~5단어짜리 아주 짧은 말. 가장 흔한 낱말만. 또박또박.",
+                q:"예/아니오 질문이나 둘 중 하나 고르는 질문(Cats or dogs?)",
+                rep:"내 말을 1~4단어의 아주 쉬운 표현으로 바꾼 것"},
+  "단어 몇 개 앎": {talk:"짧고 쉬운 문장 1~2개. 현재·과거 같은 기본 시제, 흔한 낱말.",
+                q:"What/Where/Who 같은 쉬운 질문 하나",
+                rep:"내 말을 쉬운 한 문장으로 바꾼 것"},
+  "짧은 대화 됨": {talk:"자연스러운 문장 2~3개. 일상 낱말을 다양하게, 네 생각이나 짧은 경험도 한마디 섞어.",
+                q:"Why/How 같은 열린 질문이나 경험을 묻는 질문",
+                rep:"내 말을 더 자연스러운 원어민 표현으로 바꾼 것(문장 하나)"},
+  "일상 대화 됨": {talk:"원어민 친구처럼 자연스러운 보통 수준의 말 2~4문장. 구동사·관용 표현·다양한 시제를 자연스럽게 쓰고, 네 의견·농담·짧은 이야기도 해. 초급자에게 하듯 쉽게 풀어 말하지 마.",
+                q:"이유·의견·자세한 설명을 끌어내는 질문(What made you…? How did that feel? Would you rather…?)",
+                rep:"내 말을 원어민이 실제로 쓰는 더 세련된 표현으로 바꾼 것(관용구·구동사 포함)"},
+  "깊은 대화 됨": {talk:"원어민끼리 대화하는 속도와 수준 그대로 2~5문장. 풍부한 어휘·관용구·뉘앙스를 쓰고, 뉴스·사회·일·가치관 같은 깊은 주제도 다뤄. 내 의견에 가끔 반대 의견도 내서 토론처럼 이어 가.",
+                q:"의견을 따지고 근거를 묻는 질문, 가정 질문(What if…?), 비교 질문",
+                rep:"내 말을 교양 있는 원어민이 쓸 더 정확하고 세련된 표현으로 바꾼 것"}
+};
+const lv = () => LEVELS[S.level] || LEVELS["단어 몇 개 앎"];
 function sysPrompt(){
-  const L=S.lang;
+  const L=S.lang, V=lv(), high = /일상|깊은/.test(S.level);
   const rep = {적게:"가끔(대여섯 번에 한 번쯤)", 보통:"두세 번에 한 번쯤", 많이:"거의 매번(질문과 번갈아)"}[S.repeatAmt] || "두세 번에 한 번쯤";
   let p = `[내 사용설명서]
 - 나는: ${S.who} · 나이: ${S.age||"모름"}살
@@ -362,13 +390,14 @@ function sysPrompt(){
 
 [대화 설정]
 너는 위 사용설명서의 사람과 ${L}로 수다 떠는 친구 ${S.friend}야. 선생님 말고 친구처럼 말해 줘.
-1. 한 번에 한 가지 이야기만: 방금 내가 한 말에 대해서.
-2. 한 번에 아주 짧은 문장 두 개까지. 반응하고 → 쉬운 질문 하나, 또는 따라 말할 문장 하나. 둘을 한꺼번에 하지는 마.
-3. 쉬운 낱말로, 또박또박.
-4. 내가 한국어로 말하면 알아듣고 ${L}로 쉽게 대답해. 그리고 ${rep} 내 말을 ${L} 문장으로 바꿔서 따라 말하게 해 줘.
-5. 어떤 대답이든 괜찮아. 한 단어여도, 틀려도. 칭찬은 한 단어로. 점수·문법 설명·발음 지적은 하지 마.
-6. 내 수준과 좋아하는 것에 맞춰 말해. 이야깃거리가 떨어질 때만 좋아하는 것을 꺼내.
-7. 내가 ${L}로 대답하기 시작하면 따라 말하기를 조금씩 줄이고 질문을 늘려.
+1. 방금 내가 한 말에 제대로 반응해. 내용을 이어받아 이야기를 넓혀 가.
+2. ★말하는 수준(가장 중요)★ — 내 수준은 "${S.level}"이야. 이렇게 말해: ${V.talk}
+3. 질문은 한 번에 하나: ${V.q}. 반응하고 → 질문 하나, 또는 따라 말할 문장 하나. 둘을 한꺼번에 하지는 마.
+4. 내가 한국어로 말하면 알아듣고 ${L}로 대답해. 그리고 ${rep} 따라 말하게 해 줘. 따라 말할 문장은 ${V.rep}.
+5. 틀려도 괜찮아. 점수·문법 설명·발음 지적은 하지 마.${high ? " 내가 틀리게 말하면, 네 대답 속에서 바른 표현으로 자연스럽게 한 번 다시 써 줘(지적하지 말고)." : " 칭찬은 한 단어로."}
+6. 내 대답이 수준보다 쉽게 느껴지게 술술 나오면 조금 더 어렵게, 막히거나 한국어만 쓰면 조금 더 쉽게 맞춰. 하지만 기본은 위 수준.
+7. 좋아하는 것은 이야깃거리가 떨어질 때 꺼내. 같은 질문을 되풀이하지 마.
+7-1. 내가 ${L}로 대답하기 시작하면 따라 말하기를 조금씩 줄이고 질문을 늘려.
 8. 사람인 척하지 마. 물어보면 "언어 연습을 돕는 AI 친구"라고 해. 주소·학교·연락처·비밀번호는 묻지 마.
 9. 내 말 앞의 [한국어] 또는 [${L}] 표시는 내가 어떤 언어 버튼으로 말했는지야. 음성 인식이라 글자가 조금 틀릴 수 있으니 뜻을 짐작해서 들어 줘.`;
   if(S.who==="아이") p += `\n10. 아이와 이야기 중이야. 이름·학교·주소 같은 개인정보는 묻지 말고, 무섭거나 어른 이야기는 하지 마. 아주 쉬운 낱말만 써.`;
@@ -377,13 +406,13 @@ function sysPrompt(){
 [답하는 형식 — 꼭 지켜]
 JSON 하나만 출력해. 다른 글자는 쓰지 마.
 {"say":"...","ko":"...","repeat":"..."}
-- say: ${L}로 하는 네 말. 짧은 문장 1~2개. 한국어를 섞지 마.
+- say: ${L}로 하는 네 말. 길이와 어려움은 위 2번 수준 그대로. 한국어를 섞지 마.
 - ko: say의 자연스러운 한국어 뜻.
-- repeat: 따라 말하게 할 짧은 ${L} 문장(보통 내가 한 말을 ${L}로 바꾼 것). 이번에 안 시키면 "".
-- repeat가 있으면 say는 "Nice!" 같은 짧은 반응 하나만. "따라 해 볼까?"는 앱이 보여 주니까 쓰지 마.
+- repeat: 따라 말하게 할 ${L} 문장 하나(${V.rep}). 이번에 안 시키면 "".
+- repeat가 있으면 say는 짧은 반응 한마디만. "따라 해 볼까?"는 앱이 보여 주니까 쓰지 마.
 - repeat가 있으면 이번에는 질문하지 마.
 - 내 말 끝의 {진행: …} 은 앱이 주는 이번 차례 안내야. 꼭 그대로 따르고, 그 내용을 입 밖으로 말하지 마.
-- repeat가 없을 때는 say 끝에 꼭 아주 쉬운 질문 하나를 넣어서 대화가 이어지게 해.`;
+- repeat가 없을 때는 say 끝에 꼭 질문 하나(${V.q})를 넣어서 대화가 이어지게 해.`;
   return p;
 }
 
@@ -403,7 +432,7 @@ function apiMsgs(list){
 }
 async function callAI(system, list, maxTokens=400){
   if(!S.key) throw new Error("NOKEY");
-  const model = S.model || MODELS[S.provider];
+  const model = chatModel();
   const m = apiMsgs(list);
   let r, j;
   if(S.provider==="gemini"){
@@ -535,13 +564,13 @@ function turnHint(text){
   if(last && last.repeat){
     allowRepeat=false;
     return similar(text,last.repeat)
-      ? `{진행: 내가 방금 "${last.repeat}"를 따라 말했어. "Great!"처럼 한 단어로 칭찬하고, 그 문장 내용에 이어지는 아주 쉬운 질문 하나를 해. repeat는 "".}`
-      : `{진행: 따라 말하기 대신 그냥 대답했어. 괜찮아. 내 말에 짧게 반응하고 아주 쉬운 질문 하나를 해. repeat는 "".}`;
+      ? `{진행: 내가 방금 "${last.repeat}"를 따라 말했어. 짧게 반응하고, 그 내용에 이어지는 질문 하나(${lv().q})를 해. repeat는 "".}`
+      : `{진행: 따라 말하기 대신 그냥 대답했어. 괜찮아. 내 말에 반응하고 질문 하나(${lv().q})를 해. repeat는 "".}`;
   }
   allowRepeat = turnsSinceRepeat() >= gap;
   return allowRepeat
-    ? `{진행: 이번엔 내 말을 ${S.lang} 짧은 문장으로 바꿔서 따라 말하게 해 줘. 내가 이미 ${S.lang}로 잘 말했으면 따라 말하기 없이 질문해도 돼.}`
-    : `{진행: 이번엔 따라 말하기 없이, 짧게 반응하고 아주 쉬운 질문 하나. repeat는 "".}`;
+    ? `{진행: 이번엔 따라 말하기 차례야. repeat에는 ${lv().rep}을 넣어 줘. 내가 이미 ${S.lang}로 자연스럽게 잘 말했으면 따라 말하기 없이 질문해도 돼.}`
+    : `{진행: 이번엔 따라 말하기 없이, 반응하고 질문 하나(${lv().q}). repeat는 "".}`;
 }
 function userSays(text, lang){
   text=(text||"").trim(); if(!text) return;
@@ -616,8 +645,10 @@ async function listen(which){
     if(same) return;
     await wait(400);
   }
-  if(!SR){ liveMsg(`이 브라우저는 음성 인식이 안 돼요. ${goodBrowser}에서 열거나 ⌨️ 글자로 입력하세요.`,true); $("typeRow").classList.add("open"); return; }
+  const ai = useAI();
+  if(!ai && !SR){ liveMsg(`이 브라우저는 음성 인식이 안 돼요. ${goodBrowser}에서 열거나 ⌨️ 글자로 입력하세요.`,true); $("typeRow").classList.add("open"); return; }
   if("speechSynthesis" in window) speechSynthesis.cancel();
+  if(ai) return listenAI(which);
   if(!micOK){ if(!(await ensureMic())) return; }
   const s = {which, base:"", cur:"", heard:false, started:false, done:false, discard:false, fatal:false, finished:false, restarts:0};
   sess = s; recWhich = which; setMics();
@@ -672,6 +703,7 @@ function startRec(s){
 function endListen(discard){
   const s = sess; if(!s) return;
   s.done = true; s.discard = s.discard || discard;
+  if(s.ai){ finishAI(s); return; }
   clearTimeout(s.silT);
   try{ discard ? s.rec.abort() : s.rec.stop(); }catch(e){}
   setTimeout(()=>finishListen(s), 1500);                 // onend 가 안 오는 폰 대비
@@ -686,6 +718,116 @@ function finishListen(s){
   else liveMsg("아무 말도 못 알아들었어요. 버튼을 누르고 폰 가까이에서 말해 주세요.", true);
 }
 
+/* ---------- AI 인식: 녹음 → Gemini가 받아 적기 ---------- */
+const useAI = () => S.stt==="ai" && S.provider==="gemini" && !!S.key;
+
+function toWav16k(chunks, inRate){
+  let len=0; for(const c of chunks) len+=c.length;
+  const all=new Float32Array(len); let o=0; for(const c of chunks){ all.set(c,o); o+=c.length; }
+  const outRate=16000, ratio=inRate/outRate, outLen=Math.max(1,Math.floor(len/ratio));
+  const buf=new ArrayBuffer(44+outLen*2), v=new DataView(buf);
+  const str=(off,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(off+i,s.charCodeAt(i)); };
+  str(0,"RIFF"); v.setUint32(4,36+outLen*2,true); str(8,"WAVE"); str(12,"fmt "); v.setUint32(16,16,true);
+  v.setUint16(20,1,true); v.setUint16(22,1,true); v.setUint32(24,outRate,true); v.setUint32(28,outRate*2,true);
+  v.setUint16(32,2,true); v.setUint16(34,16,true); str(36,"data"); v.setUint32(40,outLen*2,true);
+  for(let i=0;i<outLen;i++){                               // 구간 평균으로 줄이기(간단한 저역 통과)
+    const a=Math.floor(i*ratio), b=Math.max(a+1, Math.min(len, Math.floor((i+1)*ratio)));
+    let sum=0; for(let j=a;j<b&&j<len;j++) sum+=all[j];
+    let x=sum/Math.max(1,Math.min(b,len)-a); x=Math.max(-1,Math.min(1,x));
+    v.setInt16(44+i*2, x<0 ? x*0x8000 : x*0x7fff, true);
+  }
+  return new Uint8Array(buf);
+}
+function b64(bytes){ let s=""; for(let i=0;i<bytes.length;i+=0x8000) s+=String.fromCharCode.apply(null, bytes.subarray(i,i+0x8000)); return btoa(s); }
+
+async function transcribeGemini(wav){
+  const model = S.model || MODELS.gemini, last = lastAIData();
+  let ctxLine = "";
+  if(last){
+    ctxLine = '\n(맥락: AI 친구가 방금 "' + (last.say||"") + '"라고 했어.' + (last.repeat ? ' 따라 말하게 한 문장은 "' + last.repeat + '"야.' : '') + ' 이건 참고만 하고, 실제로 들린 말만 적어.)';
+  }
+  const prompt = `이 음성을 한 줄로 받아 적어 줘. 말하는 사람은 한국어를 쓰는 사람이고 ${S.lang}를 연습 중이야. 한국어와 ${S.lang}가 섞여 있을 수 있어. ${S.lang} 발음이 서툴 수 있으니 뜻이 통하는 가장 가까운 단어로 적어. 한국어는 한글로, ${S.lang}는 그 언어 글자로 적어. 들린 말만 적고 번역·교정·설명·따옴표·괄호 설명은 쓰지 마. 말소리가 없으면 아무것도 쓰지 말고 비워 둬.${ctxLine}`;
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(S.key)}`,{
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ contents:[{role:"user", parts:[{text:prompt},{inlineData:{mimeType:"audio/wav", data:b64(wav)}}]}],
+      generationConfig:{temperature:0, maxOutputTokens:1000} })
+  });
+  const j = await r.json().catch(()=>({}));
+  if(!r.ok) throw apiErr(r, j);
+  let t = ((j.candidates||[])[0]?.content?.parts||[]).filter(p=>!p.thought).map(p=>p.text||"").join("").trim();
+  t = t.replace(/^["“”'`]+|["“”'`]+$/g,"").trim();
+  if(/^[\(\[（].*[\)\]）]$/.test(t)) t="";               // "(침묵)" 같은 설명은 버림
+  return t;
+}
+
+function onBlock(s, data){
+  if(s.done) return;
+  const blk=new Float32Array(data); s.chunks.push(blk);
+  let sum=0; for(let i=0;i<blk.length;i++) sum+=blk[i]*blk[i];
+  const rms=Math.sqrt(sum/blk.length), idx=s.idx++, now=performance.now();
+  if(idx<6){ s.floor = s.floor==null ? rms : Math.min(s.floor, rms); s.thr = Math.max(0.012, s.floor*3); }
+  if(idx>=2 && rms>s.thr){ if(!s.voiced){ s.voiced=true; s.firstIdx=idx; } s.lastVoice=now; s.lastIdx=idx; }
+  if(now-s.meterT>150){
+    s.meterT=now; const lv=Math.min(5,Math.floor(rms/s.thr));
+    liveMsg((s.voiced?"🎙️ 듣는 중 ":"🎙️ 말해 주세요 ")+"▮".repeat(lv)+"▯".repeat(5-lv)+((!Number(S.wait)&&s.voiced)?"  다 말하면 ⏹":""));
+  }
+  const sec=Number(S.wait);
+  if(s.voiced && sec && now-s.lastVoice>sec*1000) endListen(false);
+}
+async function openCapture(s){
+  const stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, autoGainControl:true}});
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC){ stream.getTracks().forEach(t=>t.stop()); const e=new Error("no AudioContext"); e.name="NoAudio"; throw e; }
+  const ctx = new AC(); try{ await ctx.resume(); }catch(e){}
+  const src=ctx.createMediaStreamSource(stream), proc=ctx.createScriptProcessor(4096,1,1), mute=ctx.createGain();
+  mute.gain.value=0;
+  proc.onaudioprocess = e=>onBlock(s, e.inputBuffer.getChannelData(0));
+  src.connect(proc); proc.connect(mute); mute.connect(ctx.destination);
+  s.cap={stream,ctx,src,proc,mute}; s.rate=ctx.sampleRate; s.started=true; micOK=true;
+}
+function closeCapture(s){
+  const c=s.cap; if(!c) return; s.cap=null;
+  try{ c.proc.onaudioprocess=null; c.src.disconnect(); c.proc.disconnect(); c.mute.disconnect(); }catch(e){}
+  try{ c.stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+  try{ c.ctx.close(); }catch(e){}
+}
+async function listenAI(which){
+  const bad = inFrame ? "frame" : (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) ? "insecure" : null;
+  if(bad){ liveMsg(micHelp(bad),true); return; }
+  const s={ai:true, which, done:false, discard:false, finished:false, started:false, chunks:[], idx:0, floor:null, thr:0.012,
+           voiced:false, lastVoice:0, firstIdx:0, lastIdx:0, meterT:0};
+  sess=s; recWhich=which; setMics();
+  liveMsg("🎙️ 마이크 켜는 중… (허용 창이 뜨면 '허용')");
+  s.dogT=setTimeout(()=>{ if(sess===s && !s.started){ liveMsg(micHelp("other")+" (시작 안 됨)",true); endListen(true); } }, 20000);
+  try{ await openCapture(s); }
+  catch(e){
+    clearTimeout(s.dogT); s.finished=true; if(sess===s){ sess=null; recWhich=null; } setMics();
+    const n=e&&e.name;
+    liveMsg(micHelp(n==="NotAllowedError"||n==="SecurityError"?"denied": n==="NotFoundError"?"nomic": n==="NotReadableError"?"busy":"other")+" ["+(n||"")+"]", true);
+    return;
+  }
+  clearTimeout(s.dogT);
+  if(s.done){ closeCapture(s); return; }                       // 켜지는 동안 취소됨
+  s.maxT =setTimeout(()=>{ if(sess===s) endListen(false); }, 40000);
+  s.idleT=setTimeout(()=>{ if(sess===s && !s.voiced) endListen(false); }, 12000);
+}
+async function finishAI(s){
+  if(s.finished) return; s.finished=true;
+  for(const k of ["maxT","idleT","dogT"]) clearTimeout(s[k]);
+  closeCapture(s);
+  if(sess===s){ sess=null; recWhich=null; }
+  if(s.discard){ setMics(); return; }
+  if(!s.voiced){ setMics(); liveMsg("아무 말도 못 알아들었어요. 버튼을 누르고 폰 가까이에서 말해 주세요.",true); return; }
+  const wav = toWav16k(s.chunks.slice(Math.max(0,s.firstIdx-4), s.lastIdx+9), s.rate); s.chunks=[];
+  busy=true; setMics(); liveMsg("📝 받아 적는 중…");
+  let text="";
+  try{ text = await transcribeGemini(wav); }
+  catch(e){ busy=false; setMics(); liveMsg(""); toast(errText(e)+" (음성 인식은 ⚙️ 설정에서 '폰 기본 인식'으로 바꿀 수도 있어요)",6000); return; }
+  busy=false; setMics();
+  if(!text){ liveMsg("아무 말도 못 알아들었어요. 조금 더 크게, 폰 가까이에서 말해 주세요.",true); return; }
+  liveMsg(""); userSays(text, /[가-힣]/.test(text) ? "ko" : "tg");
+}
+
 /* ---------- 마이크 점검 ---------- */
 async function runDiag(){
   const box=$("diagList"); box.innerHTML="";
@@ -695,7 +837,8 @@ async function runDiag(){
   line(goodB, "브라우저: "+browser, goodB?"":goodBrowser+"에서 열어 주세요.");
   line(!inFrame, "앱 미리보기 화면이 아님", inFrame?micHelp("frame"):"");
   line(window.isSecureContext, "https 주소", window.isSecureContext?location.host||location.protocol:micHelp("insecure"));
-  line(!!SR, "음성 인식 기능", SR?"":"이 브라우저에는 없어요.");
+  line(useAI()||!!SR, "음성 인식 방식: "+(useAI()?"AI 인식(Gemini)":"폰 기본 인식"),
+       useAI()?"":(S.stt==="ai"?"AI 인식을 쓰려면 AI 회사를 Gemini로 두고 API 키를 넣어 주세요.":(SR?"":"이 브라우저에는 없어요.")));
   const p=line(null,"마이크 권한 확인 중…");
   micOK=false; const ok=await ensureMic(); p.remove();
   line(ok, "마이크 권한", ok?"":$("live").textContent); liveMsg("");
@@ -729,7 +872,7 @@ function refreshLabels(){
 }
 function startNew(){
   if(!S.key){ openSettings(); toast("먼저 API 키를 넣어 주세요."); return; }
-  msgs=[{role:"user", text:"(대화 시작)", apiText:"(대화 시작. 네가 먼저 아주 짧게 인사하고, 오늘 하루가 어땠는지 하나만 물어봐.)", hidden:true}];
+  msgs=[{role:"user", text:"(대화 시작)", apiText:"(대화 시작. 네가 먼저 내 수준에 맞게 인사하고, 오늘 하루에 대해 질문 하나만 해.)", hidden:true}];
   save(); $("chat").innerHTML=""; enter(); aiTurn();
 }
 function resume(){ renderAll(); enter(); }
@@ -744,7 +887,7 @@ function enter(){
 function openSettings(){
   $("s_lang").innerHTML = Object.keys(LANGS).map(k=>`<option>${k}</option>`).join("");
   const f = {who:"s_who",age:"s_age",lang:"s_lang",level:"s_level",likes:"s_likes",friend:"s_friend",persona:"s_persona",
-    repeatAmt:"s_repeat",wait:"s_wait",minutes:"s_minutes",rate:"s_rate",provider:"s_provider",model:"s_model",key:"s_key"};
+    repeatAmt:"s_repeat",wait:"s_wait",stt:"s_stt",brain:"s_brain",minutes:"s_minutes",rate:"s_rate",provider:"s_provider",model:"s_model",key:"s_key"};
   for(const k in f) $(f[k]).value = S[k] ?? "";
   $("s_showKo").checked=!!S.showKo; $("s_textAfter").checked=!!S.textAfter;
   $("rateVal").textContent=Number(S.rate).toFixed(2);
@@ -756,7 +899,7 @@ function readSettings(){
   const n = {
     who:$("s_who").value, age:$("s_age").value.trim(), lang:$("s_lang").value, level:$("s_level").value,
     likes:$("s_likes").value.trim(), friend:$("s_friend").value.trim()||"Emma", persona:$("s_persona").value.trim()||"차분하고 다정함",
-    repeatAmt:$("s_repeat").value, wait:$("s_wait").value, minutes:Math.max(1,parseInt($("s_minutes").value)||15), rate:Number($("s_rate").value)||0.88,
+    repeatAmt:$("s_repeat").value, wait:$("s_wait").value, stt:$("s_stt").value, brain:$("s_brain").value, minutes:Math.max(1,parseInt($("s_minutes").value)||15), rate:Number($("s_rate").value)||0.88,
     voice:$("s_voice").value, showKo:$("s_showKo").checked, textAfter:$("s_textAfter").checked,
     provider:$("s_provider").value, model:$("s_model").value.trim(), key:$("s_key").value.trim()
   };
