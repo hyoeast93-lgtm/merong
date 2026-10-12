@@ -114,6 +114,14 @@ footer{padding:10px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px
 .sent button{border:1px solid var(--line);background:transparent;border-radius:10px;padding:6px 10px}
 #writeIn{width:100%;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:12px;font-size:17px;min-height:70px}
 #fixBox{margin-top:12px}
+.gfix{align-self:flex-end;max-width:86%;margin-top:-6px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:14px;line-height:1.5}
+.gfix.ok{color:var(--sub);font-size:13px;padding:6px 10px}
+.gfix .better{font-size:16px;font-weight:600;color:var(--accent);display:block;margin:2px 0 4px}
+.gfix .why{color:var(--ink)}
+.gfix .lab{font-size:12px;color:var(--sub)}
+.gfix button{border:1px solid var(--line);background:transparent;border-radius:10px;padding:2px 8px;font-size:12px;margin-left:6px;color:var(--sub)}
+.fixitem{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:10px 0;font-size:14px;line-height:1.5}
+.fixitem s{color:var(--sub)} .fixitem b{display:block;font-size:17px;color:var(--accent);margin:2px 0}
 #toast{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);
   padding:10px 14px;border-radius:12px;font-size:14px;max-width:90%;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.show{opacity:1}
@@ -213,10 +221,12 @@ footer{padding:10px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px
     <option value="phone">폰 기본 인식 — 빠르지만 덜 정확해요</option></select></label>
   <p class="note">AI 인식은 말소리를 녹음해 Gemini에게 글자로 받아 적게 해요. 한국어·영어가 섞여도 되고 발음이 서툴러도 훨씬 잘 알아들어요. 대신 한 번 말할 때마다 요청이 한 번 더 가서 무료 사용량을 더 빨리 써요.</p>
   <label class="field"><span>말 끝나고 기다리는 시간</span><select id="s_wait">
+    <option value="2">2초 쉬면 보내기 (빠르게)</option>
     <option value="3">3초 쉬면 보내기 (기본)</option><option value="5">5초 쉬면 보내기 (천천히)</option>
     <option value="0">버튼을 다시 누를 때까지</option></select></label>
   <label class="check"><input type="checkbox" id="s_showKo"> 한국어 뜻 보이기</label>
   <label class="check"><input type="checkbox" id="s_textAfter"> 소리 먼저, 글자는 나중에</label>
+  <label class="check"><input type="checkbox" id="s_gfix"> 내 문법 피드백 보기 (내 말풍선 아래 글로)</label>
 
   <h3>AI 연결</h3>
   <label class="field"><span>AI 회사</span><select id="s_provider">
@@ -255,6 +265,7 @@ footer{padding:10px 16px calc(14px + env(safe-area-inset-bottom));border-top:1px
   <h2>오늘의 문장</h2>
   <p class="note">③ 읽어 보기: 🔊를 누르고 들은 다음 소리 내어 읽어 보세요.</p>
   <div id="sentList"><p class="note">정리하는 중…</p></div>
+  <div id="fixSec" style="display:none"><h3>✏️ 오늘 고친 표현</h3><div id="fixList"></div></div>
   <h3>④ 하나 써 보기</h3>
   <p class="note">위 문장 중 하나를 보지 않고 써 보세요. 틀려도 괜찮아요.</p>
   <textarea id="writeIn" autocapitalize="sentences"></textarea>
@@ -273,7 +284,7 @@ const SMART = {gemini:"gemini-3.8-flash"};
 const chatModel = () => S.model || (S.brain==="smart" && SMART[S.provider]) || MODELS[S.provider];
 const MODELS = {gemini:"gemini-3.5-flash-lite", openai:"gpt-4o-mini", claude:"claude-haiku-4-5"};
 const DEF = {who:"성인",age:"",lang:"영어",level:"단어 몇 개 앎",likes:"",minutes:15,friend:"Emma",persona:"차분하고 다정함",
-  repeatAmt:"보통",wait:"3",stt:"ai",brain:"fast",rate:0.88,showKo:true,textAfter:true,voice:"",provider:"gemini",model:"",key:""};
+  repeatAmt:"보통",wait:"3",stt:"ai",brain:"fast",rate:0.88,showKo:true,textAfter:true,gfix:true,voice:"",provider:"gemini",model:"",key:""};
 
 /* ---------- 저장 ---------- */
 const store = {
@@ -413,6 +424,15 @@ JSON 하나만 출력해. 다른 글자는 쓰지 마.
 - repeat가 있으면 이번에는 질문하지 마.
 - 내 말 끝의 {진행: …} 은 앱이 주는 이번 차례 안내야. 꼭 그대로 따르고, 그 내용을 입 밖으로 말하지 마.
 - repeat가 없을 때는 say 끝에 꼭 질문 하나(${V.q})를 넣어서 대화가 이어지게 해.`;
+  if(S.gfix) p += `
+- fix: 내가 방금 ${L}로 말한 부분에 대한 글 피드백(화면에만 보여 줌. say에서는 절대 지적하지 마).
+  · 내가 한국어로만 말했거나 대화 시작이면 null.
+  · 문법·낱말 선택·어순이 틀렸거나 원어민이 안 쓰는 어색한 표현이면:
+    {"ok":false,"better":"내 말을 자연스럽게 고친 ${L} 문장 전체","why":"무엇이 왜 틀렸는지 한국어로 1~2문장. ${S.who==="아이"?"아이가 알아듣게 아주 쉽게.":"핵심 문법 이름(예: 과거형, 3인칭 단수, 전치사)과 규칙을 짧게."}"}
+  · 틀린 데가 없으면 {"ok":true}
+  · 음성 인식 때문에 생긴 철자·대소문자·문장부호 문제는 무시해. 문법·표현만 봐.
+  · 이번에 repeat를 내는데 fix가 ok:false면, repeat는 반드시 better와 똑같은 문장으로 해(고친 문장을 따라 말하게).
+  · 형식: {"say":"...","ko":"...","repeat":"...","fix":null 또는 {...}}`;
   return p;
 }
 
@@ -493,7 +513,26 @@ function addMe(m){
   const b=el("div","msg me");
   b.appendChild(el("div","tag", m.lang==="ko"?"한국어":S.lang));
   b.appendChild(el("div","t",m.text));
-  $("chat").appendChild(b); scrollDown();
+  $("chat").appendChild(b);
+  if(m.fix && S.gfix) $("chat").appendChild(fixEl(m.fix));
+  scrollDown();
+}
+function cleanFix(f, said){
+  if(!f || typeof f!=="object") return null;
+  if(f.ok===true) return {ok:true};
+  const better=String(f.better||"").trim(), why=String(f.why||"").trim();
+  if(!better || norm(better)===norm(said)) return null;
+  return {ok:false, better, why};
+}
+function fixEl(f){
+  const d=el("div","gfix"+(f.ok?" ok":""));
+  if(f.ok){ d.textContent="✅ 문법 좋아요!"; return d; }
+  const lab=el("span","lab","✏️ 이렇게 말하면 더 자연스러워요");
+  const play=el("button",null,"🔊"); play.onclick=()=>speak(f.better,tgCode());
+  lab.appendChild(play); d.appendChild(lab);
+  d.appendChild(el("span","better",f.better));
+  if(f.why) d.appendChild(el("div","why","💡 "+f.why));
+  return d;
 }
 function addAI(d, pending){
   const b=el("div","msg ai"+(pending?" pending":""));
@@ -531,12 +570,23 @@ async function aiTurn(){
   try{
     const raw = await callAI(sysPrompt(), msgs);
     let d = parseJSON(raw) || {say: raw.trim().slice(0,200), ko:"", repeat:""};
-    d = {say:String(d.say||""), ko:String(d.ko||""), repeat:String(d.repeat||"")};
+    d = {say:String(d.say||""), ko:String(d.ko||""), repeat:String(d.repeat||""), fix:d.fix||null};
     if(!d.say.trim() && !d.repeat.trim()) throw new Error("EMPTY");
     // 안내를 어기고 또 따라 말하기를 시키면: 질문이 있으면 따라 말하기는 뺀다(같은 문장 반복 고리 방지)
     if(!allowRepeat && d.repeat && /[?？]/.test(d.say)) d.repeat="";
     allowRepeat=true;
     th.remove();
+    const fx = d.fix; delete d.fix;
+    let lastUser=null; for(let i=msgs.length-1;i>=0;i--){ if(msgs[i].role==="user"){ lastUser=msgs[i]; break; } }
+    if(lastUser && !lastUser.hidden && S.gfix){
+      const f=cleanFix(fx, lastUser.text);
+      if(f && !(f.ok && lastUser.lang==="ko" && /[가-힣]/.test(lastUser.text))){   // 한국어만 말했는데 '좋아요'는 안 붙임
+        lastUser.fix=f;
+        if(!f.ok && d.repeat) d.repeat = f.better;          // 따라 말하기는 고친 문장으로
+        const bubbles=$("chat").querySelectorAll(".msg.me"); const lb=bubbles[bubbles.length-1];
+        if(lb) lb.insertAdjacentElement("afterend", fixEl(f));
+      }
+    }
     msgs.push({role:"ai", data:d}); save(); lastSay=d;
     const b = addAI(d, !!S.textAfter);
     setHot(!!d.repeat);
@@ -889,7 +939,7 @@ function openSettings(){
   const f = {who:"s_who",age:"s_age",lang:"s_lang",level:"s_level",likes:"s_likes",friend:"s_friend",persona:"s_persona",
     repeatAmt:"s_repeat",wait:"s_wait",stt:"s_stt",brain:"s_brain",minutes:"s_minutes",rate:"s_rate",provider:"s_provider",model:"s_model",key:"s_key"};
   for(const k in f) $(f[k]).value = S[k] ?? "";
-  $("s_showKo").checked=!!S.showKo; $("s_textAfter").checked=!!S.textAfter;
+  $("s_showKo").checked=!!S.showKo; $("s_textAfter").checked=!!S.textAfter; $("s_gfix").checked=!!S.gfix;
   $("rateVal").textContent=Number(S.rate).toFixed(2);
   $("s_model").placeholder = MODELS[S.provider];
   loadVoices();
@@ -900,7 +950,7 @@ function readSettings(){
     who:$("s_who").value, age:$("s_age").value.trim(), lang:$("s_lang").value, level:$("s_level").value,
     likes:$("s_likes").value.trim(), friend:$("s_friend").value.trim()||"Emma", persona:$("s_persona").value.trim()||"차분하고 다정함",
     repeatAmt:$("s_repeat").value, wait:$("s_wait").value, stt:$("s_stt").value, brain:$("s_brain").value, minutes:Math.max(1,parseInt($("s_minutes").value)||15), rate:Number($("s_rate").value)||0.88,
-    voice:$("s_voice").value, showKo:$("s_showKo").checked, textAfter:$("s_textAfter").checked,
+    voice:$("s_voice").value, showKo:$("s_showKo").checked, textAfter:$("s_textAfter").checked, gfix:$("s_gfix").checked,
     provider:$("s_provider").value, model:$("s_model").value.trim(), key:$("s_key").value.trim()
   };
   return Object.assign({},S,n);
@@ -943,7 +993,15 @@ async function finish(){
     toast(errText(e),4000);
     todaySents = msgs.filter(m=>m.role==="ai").map(m=>m.data).filter(d=>d&&(d.repeat||d.say)).slice(-3).map(d=>({t:d.repeat||d.say, ko:d.repeat?"":d.ko}));
   }
-  const hist=store.get("history",[]); hist.push({date:today(), lang:S.lang, sents:todaySents}); store.set("history",hist.slice(-30));
+  const fixes = msgs.filter(m=>m.role==="user" && m.fix && !m.fix.ok).slice(-5);
+  $("fixList").innerHTML=""; $("fixSec").style.display = fixes.length ? "block" : "none";
+  for(const m of fixes){
+    const it=el("div","fixitem"); it.appendChild(el("s",null,m.text)); it.appendChild(el("b",null,m.fix.better));
+    if(m.fix.why) it.appendChild(el("div",null,"💡 "+m.fix.why));
+    const pb=el("button",null,"🔊"); pb.style.cssText="border:1px solid var(--line);background:transparent;border-radius:10px;padding:4px 10px;margin-top:6px";
+    pb.onclick=()=>speak(m.fix.better,tgCode()); it.appendChild(pb); $("fixList").appendChild(it);
+  }
+  const hist=store.get("history",[]); hist.push({date:today(), lang:S.lang, sents:todaySents, fixes:fixes.map(m=>({said:m.text,...m.fix}))}); store.set("history",hist.slice(-30));
   $("sentList").innerHTML="";
   if(!todaySents.length){ $("sentList").innerHTML=`<p class="note">정리할 문장이 없어요.</p>`; return; }
   for(const s of todaySents){
